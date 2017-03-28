@@ -30,7 +30,7 @@ var uriString =
         process.env.MONGOHQ_URL ||
         'mongodb://localhost/HelloMongoose';
 
-mongoose.connect('mongodb://gregg:test@ds057954.mongolab.com:57954/alamofire-db');
+mongoose.connect('mongodb://kuofinalproject:vs0gZ5bHQ16vrhDkZsmorqNsaXLk5n8TPYWJ0e0vGh24urvAoQDqPl4veLS2JgMw7QIbQ5fAfNR0UxLrYqvtMg==@kuofinalproject.documents.azure.com:10250/?ssl=true');
 
 var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
