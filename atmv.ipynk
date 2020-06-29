@@ -1,0 +1,733 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 79,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "import matplotlib.pyplot as plt\n",
+    "import math"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "from scipy.stats import norm"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def dN(x):\n",
+    "    return math.exp(-0.5*x**2)/math.sqrt(2*math.pi)\n",
+    "\n",
+    "def N(d):\n",
+    "    return quad(lambda x:dN(x),-20,d,limit=50)[0]\n",
+    "\n",
+    "def d1f(St, K, t, T, r, sigma):\n",
+    "    d1 = (math.log(St / K) + (r + 0.5 * sigma ** 2) * (T - t)) / (sigma * math.sqrt(T - t))\n",
+    "    return d1\n",
+    "\n",
+    "def BSM_call_value(St, K, t, T, r, sigma):\n",
+    "    d1=d1f(St,K,t,T,r,sigma)\n",
+    "    d2=d1-sigma*math.sqrt(T-t)\n",
+    "    call_value = St * N(d1) - math.exp(-r * (T - t)) * K * N(d2)\n",
+    "    return call_value\n",
+    "\n",
+    "def BSM_put_value(St, K, t, T, r, sigma):\n",
+    "    put_value = BSM_call_value(St,K,t,T,r,sigma)-St + math.exp(-r * (T - t)) * K\n",
+    "    return put_value"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def BSM_delta (St, K, t, T, r, sigma):\n",
+    "    d1=d1f(St, K, t, T, r, sigma)\n",
+    "    delta=N(d1)\n",
+    "    return delta\n",
+    "\n",
+    "def BSM_gamma(St, K, t, T, r, sigma):\n",
+    "    d1=d1f(St, K, t, T, r, sigma)\n",
+    "    gamma=dN(d1) / (St * sigma*math.sqrt(T-t))\n",
+    "    return gamma\n",
+    "\n",
+    "def BSM_theta(St, K, t, T, r,sigma): #轉成正值\n",
+    "    d1 = d1f(St, K, t, T, r, sigma)\n",
+    "    d2 = d1 - sigma * math.sqrt(T - t)\n",
+    "    theta = -(St * dN(d1) * sigma / (2 * math.sqrt(T - t))\n",
+    "              + r * K * math.exp(-r * (T - t)) * N(d2))\n",
+    "    return -theta\n",
+    "\n",
+    "def BSM_rho(St, K, t, T, r, sigma):\n",
+    "    d1 = d1f(St, K, t, T, r, sigma)\n",
+    "    d2 = d1 - sigma * math.sqrt(T - t)\n",
+    "    rho = K * (T - t) * math.exp(-r * (T - t)) * N(d2)\n",
+    "    return rho\n",
+    "\n",
+    "def BSM_vega(St, K, t, T, r, sigma):\n",
+    "    d1 = d1f(St, K, t, T, r, sigma)\n",
+    "    vega = St * dN(d1) * math.sqrt(T - t)\n",
+    "    return vega\n",
+    "\n",
+    "def BSM_vanna(St, K, t, T, r, sigma):\n",
+    "    d1 = d1f(St, K, t, T, r, sigma)\n",
+    "    d2 = d1 - sigma * math.sqrt(T - t)\n",
+    "    return dN(d1) * (-d2) / sigma"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "n = norm.pdf\n",
+    "N = norm.cdf\n",
+    "\n",
+    "def bs(cp_flag, S, K, r, q, T, sigma):\n",
+    "    d1 = (np.log(S / K) + (r - q + (sigma ** 2) * 0.5) * T) / (sigma * np.sqrt(T))\n",
+    "    d2 = d1 - sigma * np.sqrt(T)\n",
+    "    if cp_flag == 'c':\n",
+    "        price = S * np.exp(-q * T) * N(d1) - K * np.exp(-r * T) * N(d2)\n",
+    "    else:\n",
+    "        price = K * np.exp(-r * T) * N(-d2) - S * np.exp(-q * T) * N(-d1)\n",
+    "    return price\n",
+    "\n",
+    "def bs_diff(cp_flag, S, K, r, q, T, sigma):\n",
+    "    d1 = (np.log(S / K) + (r - q + (sigma ** 2) * 0.5) * T) / (sigma * np.sqrt(T))\n",
+    "    return S * np.sqrt(T) * n(d1)\n",
+    "\n",
+    "def find_vol(target_value, call_put, S, K, T, r, q):\n",
+    "    MAX_ITERATIONS = 1000\n",
+    "    PRECISION = 1.0e-10\n",
+    "\n",
+    "    sigma = 0.5\n",
+    "    for i in range(0, MAX_ITERATIONS):\n",
+    "        price = bs(call_put, S, K, r, q, T, sigma)\n",
+    "        bs_dif = bs_diff(call_put, S, K, r, q, T, sigma)\n",
+    "\n",
+    "        price = price\n",
+    "        diff = target_value - price  # our root\n",
+    "\n",
+    "#         print (i, sigma, diff)\n",
+    "\n",
+    "        if (abs(diff) < PRECISION):\n",
+    "            return sigma\n",
+    "        sigma = sigma + diff/bs_dif # f(x) / f'(x)\n",
+    "\n",
+    "    # value wasn't found, return best guess so far\n",
+    "    return sigma"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "vol = lambda p_list, strike, cp : [find_vol(p_list[i], cp, S, strike[i], T, r, q) for i in range(len(strike))]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 44,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "K = np.linspace(-1, 1, 13, dtype=int) * 300 + 11000\n",
+    "call_b = [341, 297, 256, 217, 180, 145, 114, 87, 63, 44, 29.5, 18.5, 11.5]\n",
+    "call_a = [345, 305, 259, 219, 181, 147, 115, 88, 65, 45, 30, 19, 12]\n",
+    "put_b = [27.5, 34, 42, 52, 64, 80, 98, 121, 148, 178, 213, 251, 295]\n",
+    "put_a = [28, 34.5, 43, 54, 66, 81, 99, 123, 149, 181, 216, 256, 300]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# S = 11010 * np.exp(- r * T)\n",
+    "r = 0.01\n",
+    "T = 1 / 52\n",
+    "q = 0"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "S = 11010 * np.exp(r * T)\n",
+    "call_b_v = vol(call_b, K, 'c')\n",
+    "call_a_v = vol(call_a, K, 'c')\n",
+    "put_b_v = vol(put_b, K, 'p')\n",
+    "put_a_v = vol(put_a, K, 'p')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "voll = pd.DataFrame([call_b_v, call_a_v, put_b_v, put_a_v])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 45,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "voll.columns = K"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 46,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>10700</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11300</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>0.210507</td>\n",
+       "      <td>0.202741</td>\n",
+       "      <td>0.198280</td>\n",
+       "      <td>0.193545</td>\n",
+       "      <td>0.187938</td>\n",
+       "      <td>0.180951</td>\n",
+       "      <td>0.175311</td>\n",
+       "      <td>0.170273</td>\n",
+       "      <td>0.163648</td>\n",
+       "      <td>0.158504</td>\n",
+       "      <td>0.154306</td>\n",
+       "      <td>0.149649</td>\n",
+       "      <td>0.147546</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>0.221143</td>\n",
+       "      <td>0.221442</td>\n",
+       "      <td>0.204648</td>\n",
+       "      <td>0.197402</td>\n",
+       "      <td>0.189724</td>\n",
+       "      <td>0.184333</td>\n",
+       "      <td>0.176956</td>\n",
+       "      <td>0.171928</td>\n",
+       "      <td>0.167111</td>\n",
+       "      <td>0.160406</td>\n",
+       "      <td>0.155408</td>\n",
+       "      <td>0.151010</td>\n",
+       "      <td>0.149304</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>0.212337</td>\n",
+       "      <td>0.205585</td>\n",
+       "      <td>0.198695</td>\n",
+       "      <td>0.192003</td>\n",
+       "      <td>0.184740</td>\n",
+       "      <td>0.179637</td>\n",
+       "      <td>0.172404</td>\n",
+       "      <td>0.167365</td>\n",
+       "      <td>0.162350</td>\n",
+       "      <td>0.155180</td>\n",
+       "      <td>0.149331</td>\n",
+       "      <td>0.140547</td>\n",
+       "      <td>0.139339</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>0.213683</td>\n",
+       "      <td>0.206776</td>\n",
+       "      <td>0.200827</td>\n",
+       "      <td>0.195869</td>\n",
+       "      <td>0.188320</td>\n",
+       "      <td>0.181329</td>\n",
+       "      <td>0.174049</td>\n",
+       "      <td>0.170674</td>\n",
+       "      <td>0.164084</td>\n",
+       "      <td>0.160903</td>\n",
+       "      <td>0.156004</td>\n",
+       "      <td>0.154440</td>\n",
+       "      <td>0.156987</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "      10700     11000     11000     11000     11000     11000     11000  \\\n",
+       "0  0.210507  0.202741  0.198280  0.193545  0.187938  0.180951  0.175311   \n",
+       "1  0.221143  0.221442  0.204648  0.197402  0.189724  0.184333  0.176956   \n",
+       "2  0.212337  0.205585  0.198695  0.192003  0.184740  0.179637  0.172404   \n",
+       "3  0.213683  0.206776  0.200827  0.195869  0.188320  0.181329  0.174049   \n",
+       "\n",
+       "      11000     11000     11000     11000     11000     11300  \n",
+       "0  0.170273  0.163648  0.158504  0.154306  0.149649  0.147546  \n",
+       "1  0.171928  0.167111  0.160406  0.155408  0.151010  0.149304  \n",
+       "2  0.167365  0.162350  0.155180  0.149331  0.140547  0.139339  \n",
+       "3  0.170674  0.164084  0.160903  0.156004  0.154440  0.156987  "
+      ]
+     },
+     "execution_count": 46,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "voll"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 49,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "voll = voll.apply(lambda x: x.sort_values().values)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 50,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>10700</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11300</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>0.210507</td>\n",
+       "      <td>0.202741</td>\n",
+       "      <td>0.198280</td>\n",
+       "      <td>0.192003</td>\n",
+       "      <td>0.184740</td>\n",
+       "      <td>0.179637</td>\n",
+       "      <td>0.172404</td>\n",
+       "      <td>0.167365</td>\n",
+       "      <td>0.162350</td>\n",
+       "      <td>0.155180</td>\n",
+       "      <td>0.149331</td>\n",
+       "      <td>0.140547</td>\n",
+       "      <td>0.139339</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>0.212337</td>\n",
+       "      <td>0.205585</td>\n",
+       "      <td>0.198695</td>\n",
+       "      <td>0.193545</td>\n",
+       "      <td>0.187938</td>\n",
+       "      <td>0.180951</td>\n",
+       "      <td>0.174049</td>\n",
+       "      <td>0.170273</td>\n",
+       "      <td>0.163648</td>\n",
+       "      <td>0.158504</td>\n",
+       "      <td>0.154306</td>\n",
+       "      <td>0.149649</td>\n",
+       "      <td>0.147546</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>0.213683</td>\n",
+       "      <td>0.206776</td>\n",
+       "      <td>0.200827</td>\n",
+       "      <td>0.195869</td>\n",
+       "      <td>0.188320</td>\n",
+       "      <td>0.181329</td>\n",
+       "      <td>0.175311</td>\n",
+       "      <td>0.170674</td>\n",
+       "      <td>0.164084</td>\n",
+       "      <td>0.160406</td>\n",
+       "      <td>0.155408</td>\n",
+       "      <td>0.151010</td>\n",
+       "      <td>0.149304</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>0.221143</td>\n",
+       "      <td>0.221442</td>\n",
+       "      <td>0.204648</td>\n",
+       "      <td>0.197402</td>\n",
+       "      <td>0.189724</td>\n",
+       "      <td>0.184333</td>\n",
+       "      <td>0.176956</td>\n",
+       "      <td>0.171928</td>\n",
+       "      <td>0.167111</td>\n",
+       "      <td>0.160903</td>\n",
+       "      <td>0.156004</td>\n",
+       "      <td>0.154440</td>\n",
+       "      <td>0.156987</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "      10700     11000     11000     11000     11000     11000     11000  \\\n",
+       "0  0.210507  0.202741  0.198280  0.192003  0.184740  0.179637  0.172404   \n",
+       "1  0.212337  0.205585  0.198695  0.193545  0.187938  0.180951  0.174049   \n",
+       "2  0.213683  0.206776  0.200827  0.195869  0.188320  0.181329  0.175311   \n",
+       "3  0.221143  0.221442  0.204648  0.197402  0.189724  0.184333  0.176956   \n",
+       "\n",
+       "      11000     11000     11000     11000     11000     11300  \n",
+       "0  0.167365  0.162350  0.155180  0.149331  0.140547  0.139339  \n",
+       "1  0.170273  0.163648  0.158504  0.154306  0.149649  0.147546  \n",
+       "2  0.170674  0.164084  0.160406  0.155408  0.151010  0.149304  \n",
+       "3  0.171928  0.167111  0.160903  0.156004  0.154440  0.156987  "
+      ]
+     },
+     "execution_count": 50,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "voll"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 70,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "vol = pd.DataFrame(voll.iloc[[1,2], :].mean()).transpose()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 71,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>10700</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11000</th>\n",
+       "      <th>11300</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>0.21301</td>\n",
+       "      <td>0.206181</td>\n",
+       "      <td>0.199761</td>\n",
+       "      <td>0.194707</td>\n",
+       "      <td>0.188129</td>\n",
+       "      <td>0.18114</td>\n",
+       "      <td>0.17468</td>\n",
+       "      <td>0.170474</td>\n",
+       "      <td>0.163866</td>\n",
+       "      <td>0.159455</td>\n",
+       "      <td>0.154857</td>\n",
+       "      <td>0.150329</td>\n",
+       "      <td>0.148425</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "     10700     11000     11000     11000     11000    11000    11000  \\\n",
+       "0  0.21301  0.206181  0.199761  0.194707  0.188129  0.18114  0.17468   \n",
+       "\n",
+       "      11000     11000     11000     11000     11000     11300  \n",
+       "0  0.170474  0.163866  0.159455  0.154857  0.150329  0.148425  "
+      ]
+     },
+     "execution_count": 71,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "vol"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.legend.Legend at 0xf202d48>"
+      ]
+     },
+     "execution_count": 11,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "plt.figure()\n",
+    "plt.scatter(K, call_b_v, marker='^', label='call bid')\n",
+    "plt.scatter(K, call_a_v, marker='^', label='call ask')\n",
+    "plt.scatter(K, put_b_v, marker='s', label='put bid')\n",
+    "plt.scatter(K, put_a_v, marker='s', label='put ask')\n",
+    "plt.legend()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "from keras.models import Sequential\n",
+    "from keras.layers import Dense"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 77,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.20618058765595487"
+      ]
+     },
+     "execution_count": 77,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "vol.iloc[0, 1]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 80,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "vega = [BSM_vega(S, K[i], 0, T, r, vol.iloc[0, i]) for i in range(len(K))]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 81,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "[371.4924194382857,\n",
+       " 608.1486356210991,\n",
+       " 608.1118192040815,\n",
+       " 608.0798808089837,\n",
+       " 608.0339323040903,\n",
+       " 607.9789431305206,\n",
+       " 607.9216044019199,\n",
+       " 607.8804441905768,\n",
+       " 607.8088351636034,\n",
+       " 607.7557093124427,\n",
+       " 607.6951741978675,\n",
+       " 607.6298183428859,\n",
+       " 284.46955216760557]"
+      ]
+     },
+     "execution_count": 81,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "vega"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.6"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
